@@ -7,6 +7,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     database_url: str
+    
+    jwt_secret_key: str
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 15
+
+
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -25,7 +31,13 @@ class Settings(BaseSettings):
                 "asyncpg does not accept sslmode/channel_binding; use '?ssl=require'"
             )
         return value
-
+        
+    @field_validator("jwt_secret_key")
+    @classmethod
+    def validate_jwt_secret_key(cls, value: str) -> str:
+        if len(value) < 32:
+            raise ValueError("JWT_SECRET_KEY must be at least 32 characters")
+        return value
 
 @lru_cache
 def get_settings() -> Settings:
