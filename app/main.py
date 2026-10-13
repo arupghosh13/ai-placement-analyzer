@@ -22,6 +22,13 @@ from app.services.extractor import (
     InsufficientContextError,
 )
 
+from app.api.v1.routes.auth import router as auth_router
+from app.core.exceptions import (   # add the two new names to your existing import
+    email_already_registered_handler,
+    invalid_credentials_handler,
+)
+from app.services.auth_service import EmailAlreadyRegisteredError, InvalidCredentialsError
+
 # ─────────────────────────────────────────
 # LOGGING SETUP
 # Simple console logging for Phase 1
@@ -119,9 +126,20 @@ app.add_exception_handler(
     validation_error_handler,
 )
 app.add_exception_handler(
+    EmailAlreadyRegisteredError, 
+    email_already_registered_handler
+)
+app.add_exception_handler(
+    InvalidCredentialsError, 
+    invalid_credentials_handler
+)
+
+app.add_exception_handler(
     Exception,
     global_exception_handler,
 )
+
+
 
 
 # ─────────────────────────────────────────
@@ -134,6 +152,11 @@ app.add_exception_handler(
 app.include_router(
     analyze_router,
     prefix="/api/v1",
+)
+
+app.include_router(
+    auth_router,
+    prefix="/api/v1"
 )
 
 

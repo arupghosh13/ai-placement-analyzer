@@ -12,6 +12,8 @@ from app.services.extractor import (
     InsufficientContextError,
 )
 
+from app.services.auth_service import EmailAlreadyRegisteredError, InvalidCredentialsError
+
 logger = logging.getLogger(__name__)
 
 
@@ -150,3 +152,15 @@ async def global_exception_handler(
             "Please try again later."
         ),
     )
+
+
+
+
+async def email_already_registered_handler(request: Request, exc: EmailAlreadyRegisteredError):
+    return _build_error_response(
+        409, "EMAIL_ALREADY_REGISTERED", "An account with this email already exists."
+    )
+
+
+async def invalid_credentials_handler(request: Request, exc: InvalidCredentialsError):
+    return _build_error_response(401, "INVALID_CREDENTIALS", "Incorrect email or password.")
