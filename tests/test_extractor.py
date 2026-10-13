@@ -29,6 +29,38 @@ def make_minimal_docx_bytes(text: str) -> bytes:
     document.save(stream)
     return stream.getvalue()
 
+# ─────────────────────────────────────────
+# PDF HELPERS
+# ─────────────────────────────────────────
+
+def make_pdf_bytes(pages, password=None) -> bytes:
+    """
+    Create a real in-memory PDF. `pages` is a list of pages,
+    each page is a list of text lines. An empty page = no text layer
+    (simulates a scanned / image-only resume).
+    """
+    from reportlab.lib.pagesizes import letter
+    from reportlab.pdfgen import canvas
+
+    buffer = io.BytesIO()
+    # encrypt=<password string> makes reportlab write a password-protected PDF
+    pdf = canvas.Canvas(buffer, pagesize=letter, encrypt=password)
+
+    for lines in pages:
+        y = 740
+        for line in lines:
+            pdf.drawString(72, y, line)
+            y -= 16
+        pdf.showPage()
+    pdf.save()
+    return buffer.getvalue()
+
+
+RESUME_LINES = [
+    "Arup Ghosh - Backend Developer",
+    "Skills: Python, FastAPI, PostgreSQL, Docker, Git",
+    "Built a REST API with pytest coverage and JWT auth.",
+]
 
 # ─────────────────────────────────────────
 # NORMALIZE TOKEN TESTS
@@ -159,3 +191,60 @@ class TestDocxExtraction:
             extract_text_from_file(corrupt_bytes, "resume.docx")
 
         assert exc_info.value.error_code == "DOCUMENT_PARSING_FAILED"
+
+# ─────────────────────────────────────────
+# PDF EXTRACTION TESTS
+# ─────────────────────────────────────────
+
+class TestPdfExtraction:
+
+    def test_extracts_text_from_valid_pdf(self):
+        result = extract_text_from_file(make_pdf_bytes([RESUME_LINES]), "resume.pdf")
+        assert isinstance(result, str)
+        assert len(result) >= MINIMUM_TEXT_LENGTH
+        assert "python" in result.lower()
+        assert "fastapi" in result.lower()
+
+    def test_extracts_text_from_all_pages(self):
+        pages = [
+            RESUME_LINES,
+            ["Experience: Docker and Kubernetes deployments",
+             "Education: BTech, final year student"],
+        ]
+        result = extract_text_from_file(make_pdf_bytes(pages), "resume.pdf")
+        assert "fastapi" in result.lower()      # page 1
+        assert "kubernetes" in result.lower()   # page 2
+
+    def test_uppercase_extension_is_accepted(self):
+        result = extract_text_from_file(make_pdf_bytes([RESUME_LINES]), "RESUME.PDF")
+        assert "python" in result.lower()
+
+    def test_short_text_pdf_raises_insufficient_context(self):
+        with pytest.raises(InsufficientContextError):
+            extract_text_from_file(make_pdf_bytes([["Hi"]]), "resume.pdf")
+
+    def test_blank_pdf_raises_insufficient_context(self):
+        # Pages exist but have no text layer (scanned / image-only resume)
+        with pytest.raises(InsufficientContextError):
+            extract_text_from_file(make_pdf_bytes([[]]), "resume.pdf")
+
+    def test_corrupt_pdf_raises_parsing_error(self):
+        with pytest.raises(DocumentParsingError) as exc_info:
+            extract_text_from_file(b"this is not a pdf at all", "resume.pdf")
+        assert exc_info.value.error_code == "DOCUMENT_PARSING_FAILED"
+
+    def test_empty_bytes_pdf_raises_parsing_error(self):
+        with pytest.raises(DocumentParsingError) as exc_info:
+            extract_text_from_file(b"", "resume.pdf")
+        assert exc_info.value.error_code == "DOCUMENT_PARSING_FAILED"
+
+    def test_password_protected_pdf_raises_parsing_error(self):
+        locked = make_pdf_bytes([RESUME_LINES], password="secret")
+        with pytest.raises(DocumentParsingError) as exc_info:
+            extract_text_from_file(locked, "resume.pdf")
+        assert exc_info.value.error_code == "DOCUMENT_PARSING_FAILED"
+
+    def test_oversized_pdf_rejected_before_parsing(self):
+        with pytest.raises(DocumentParsingError) as exc_info:
+            extract_text_from_file(b"%PDF-" + b"x" * (6 * 1024 * 1024), "resume.pdf")
+        assert exc_info.value.error_code == "FILE_TOO_LARGE"
