@@ -26,8 +26,10 @@ from app.api.v1.routes.auth import router as auth_router
 from app.core.exceptions import (   # add the two new names to your existing import
     email_already_registered_handler,
     invalid_credentials_handler,
+    not_authenticated_handler,
 )
 from app.services.auth_service import EmailAlreadyRegisteredError, InvalidCredentialsError
+from app.core.security import NotAuthenticatedError
 
 # ─────────────────────────────────────────
 # LOGGING SETUP
@@ -135,9 +137,15 @@ app.add_exception_handler(
 )
 
 app.add_exception_handler(
+    NotAuthenticatedError, 
+    not_authenticated_handler
+)
+
+app.add_exception_handler(
     Exception,
     global_exception_handler,
 )
+
 
 
 

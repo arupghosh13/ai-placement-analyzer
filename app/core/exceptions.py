@@ -14,6 +14,8 @@ from app.services.extractor import (
 
 from app.services.auth_service import EmailAlreadyRegisteredError, InvalidCredentialsError
 
+from app.core.security import NotAuthenticatedError
+
 logger = logging.getLogger(__name__)
 
 
@@ -164,3 +166,9 @@ async def email_already_registered_handler(request: Request, exc: EmailAlreadyRe
 
 async def invalid_credentials_handler(request: Request, exc: InvalidCredentialsError):
     return _build_error_response(401, "INVALID_CREDENTIALS", "Incorrect email or password.")
+
+
+async def not_authenticated_handler(request: Request, exc: NotAuthenticatedError):
+    return _build_error_response(
+        401, "NOT_AUTHENTICATED", "Authentication required: missing, invalid or expired token."
+    )

@@ -17,6 +17,9 @@ _password_hasher = PasswordHasher()  # Argon2id with the library's recommended d
 class TokenError(Exception):
     """Token is missing, malformed, expired, wrongly signed or of the wrong type."""
 
+class NotAuthenticatedError(Exception):
+    """The request has no valid access token (missing, malformed, expired, wrong key or type)."""
+
 
 def hash_password(password: str) -> str:
     return _password_hasher.hash(password)
