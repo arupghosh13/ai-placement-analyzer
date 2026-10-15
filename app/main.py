@@ -93,15 +93,14 @@ async def lifespan(app: FastAPI):
 # ─────────────────────────────────────────
 # APP INITIALIZATION
 # ─────────────────────────────────────────
-
 app = FastAPI(
     title="AI Placement Analyzer",
     description=(
-        "Deterministic resume-to-JD gap analyzer. "
-        "Phase 1: zero-hallucination set-based matching. "
-        "No LLM in this phase — pure Python."
+        "Deterministic resume-to-JD gap analyzer with accounts and stored analyses. "
+        "Phase 2: PostgreSQL, JWT auth, ownership-checked resumes and analyses. "
+        "No LLM yet, pure Python."
     ),
-    version="0.1.0",
+    version="0.2.0",
     docs_url="/docs",       # Swagger UI at /docs
     redoc_url="/redoc",     # ReDoc UI at /redoc
     lifespan=lifespan,
@@ -207,7 +206,7 @@ app.include_router(
 async def health_check():
     return {
         "status": "healthy",
-        "version": "0.1.0",
-        "phase": "Phase 1 — Deterministic Matching Engine",
+        "version": "0.2.0",
+        "phase": "Phase 2 — Database, Auth and Stored Analyses",
         "message": "AI Placement Analyzer is running.",
     }
