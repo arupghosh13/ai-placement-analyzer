@@ -9,12 +9,13 @@ from sqlalchemy import text
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.v1.routes.analyze import router as analyze_router
 from app.core.exceptions import (
     document_parsing_error_handler,
     insufficient_context_handler,
     validation_error_handler,
     global_exception_handler,
+    resume_not_found_handler,
+    analysis_not_found_handler, 
 )
 from app.db.session import engine 
 from app.services.extractor import (
@@ -23,13 +24,26 @@ from app.services.extractor import (
 )
 
 from app.api.v1.routes.auth import router as auth_router
-from app.core.exceptions import (   # add the two new names to your existing import
+from app.core.exceptions import (  
     email_already_registered_handler,
     invalid_credentials_handler,
     not_authenticated_handler,
 )
+
 from app.services.auth_service import EmailAlreadyRegisteredError, InvalidCredentialsError
 from app.core.security import NotAuthenticatedError
+
+
+from app.api.v1.routes.resumes import router as resumes_router
+from app.services.resume_service import ResumeNotFoundError
+
+from app.api.v1.routes.analyses import router as analyses_router
+from app.services.analysis_service import AnalysisNotFoundError
+
+
+
+
+
 
 # ─────────────────────────────────────────
 # LOGGING SETUP
@@ -142,6 +156,16 @@ app.add_exception_handler(
 )
 
 app.add_exception_handler(
+    ResumeNotFoundError, 
+    resume_not_found_handler
+)
+
+app.add_exception_handler(
+    AnalysisNotFoundError, 
+    analysis_not_found_handler
+)
+
+app.add_exception_handler(
     Exception,
     global_exception_handler,
 )
@@ -158,15 +182,19 @@ app.add_exception_handler(
 # ─────────────────────────────────────────
 
 app.include_router(
-    analyze_router,
-    prefix="/api/v1",
-)
-
-app.include_router(
     auth_router,
     prefix="/api/v1"
 )
 
+app.include_router(
+    resumes_router, 
+    prefix="/api/v1"
+)
+
+app.include_router(
+    analyses_router, 
+    prefix="/api/v1"
+)
 
 # ─────────────────────────────────────────
 # HEALTH CHECK

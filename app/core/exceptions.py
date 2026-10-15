@@ -11,10 +11,10 @@ from app.services.extractor import (
     DocumentParsingError,
     InsufficientContextError,
 )
-
 from app.services.auth_service import EmailAlreadyRegisteredError, InvalidCredentialsError
-
 from app.core.security import NotAuthenticatedError
+from app.services.resume_service import ResumeNotFoundError
+from app.services.analysis_service import AnalysisNotFoundError
 
 logger = logging.getLogger(__name__)
 
@@ -172,3 +172,10 @@ async def not_authenticated_handler(request: Request, exc: NotAuthenticatedError
     return _build_error_response(
         401, "NOT_AUTHENTICATED", "Authentication required: missing, invalid or expired token."
     )
+
+async def resume_not_found_handler(request: Request, exc: ResumeNotFoundError):
+    return _build_error_response(404, "RESUME_NOT_FOUND", "Resume not found.")
+
+
+async def analysis_not_found_handler(request: Request, exc: AnalysisNotFoundError):
+    return _build_error_response(404, "ANALYSIS_NOT_FOUND", "Analysis not found.")
