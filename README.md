@@ -43,6 +43,7 @@ Known limits (planned for Phase 4): generic words such as "api" and "rest" can b
 
 Tests: `pytest tests/ -v` (no database or network needed).
 Latency (local, Postman, real PDF resume + JD): 124 ms for `POST /api/v1/analyze/` (target under 2000 ms).
+
 ## Phase 2: accounts, stored resumes and analyses
 
 Run it locally:
