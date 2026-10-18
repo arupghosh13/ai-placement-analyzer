@@ -2,22 +2,47 @@
 
 import logging
 import logging.config
+from contextlib import asynccontextmanager 
 
 from fastapi import FastAPI, Request
+from sqlalchemy import text  
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.v1.routes.analyze import router as analyze_router
 from app.core.exceptions import (
     document_parsing_error_handler,
     insufficient_context_handler,
     validation_error_handler,
     global_exception_handler,
+    resume_not_found_handler,
+    analysis_not_found_handler, 
 )
+from app.db.session import engine 
 from app.services.extractor import (
     DocumentParsingError,
     InsufficientContextError,
 )
+
+from app.api.v1.routes.auth import router as auth_router
+from app.core.exceptions import (  
+    email_already_registered_handler,
+    invalid_credentials_handler,
+    not_authenticated_handler,
+)
+
+from app.services.auth_service import EmailAlreadyRegisteredError, InvalidCredentialsError
+from app.core.security import NotAuthenticatedError
+
+
+from app.api.v1.routes.resumes import router as resumes_router
+from app.services.resume_service import ResumeNotFoundError
+
+from app.api.v1.routes.analyses import router as analyses_router
+from app.services.analysis_service import AnalysisNotFoundError
+
+
+
+
 
 
 # ─────────────────────────────────────────
@@ -37,21 +62,48 @@ logging.getLogger("app").setLevel(logging.INFO)
 
 logger = logging.getLogger(__name__)
 
+# ─────────────────────────────────────────
+# LIFESPAN
+# Everything before `yield` runs at startup,
+# everything after it runs at shutdown
+# ─────────────────────────────────────────
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("=" * 50)
+    logger.info("AI Placement Analyzer starting up")
+    logger.info("Phase 2 — Database + Auth")
+    logger.info("Docs available at: http://127.0.0.1:8000/docs")
+    logger.info("=" * 50)
+
+    try:
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+    except Exception as exc:
+        logger.error("Database connection failed at startup: %s", type(exc).__name__)
+        raise
+    logger.info("Database connection OK")
+
+    yield
+
+    await engine.dispose()
+    logger.info("Database engine closed. AI Placement Analyzer shutting down. Goodbye.")
+
 
 # ─────────────────────────────────────────
 # APP INITIALIZATION
 # ─────────────────────────────────────────
-
 app = FastAPI(
     title="AI Placement Analyzer",
     description=(
-        "Deterministic resume-to-JD gap analyzer. "
-        "Phase 1: zero-hallucination set-based matching. "
-        "No LLM in this phase — pure Python."
+        "Deterministic resume-to-JD gap analyzer with accounts and stored analyses. "
+        "Phase 2: PostgreSQL, JWT auth, ownership-checked resumes and analyses. "
+        "No LLM yet, pure Python."
     ),
-    version="0.1.0",
+    version="0.2.0",
     docs_url="/docs",       # Swagger UI at /docs
     redoc_url="/redoc",     # ReDoc UI at /redoc
+    lifespan=lifespan,
 )
 
 
@@ -89,9 +141,36 @@ app.add_exception_handler(
     validation_error_handler,
 )
 app.add_exception_handler(
+    EmailAlreadyRegisteredError, 
+    email_already_registered_handler
+)
+app.add_exception_handler(
+    InvalidCredentialsError, 
+    invalid_credentials_handler
+)
+
+app.add_exception_handler(
+    NotAuthenticatedError, 
+    not_authenticated_handler
+)
+
+app.add_exception_handler(
+    ResumeNotFoundError, 
+    resume_not_found_handler
+)
+
+app.add_exception_handler(
+    AnalysisNotFoundError, 
+    analysis_not_found_handler
+)
+
+app.add_exception_handler(
     Exception,
     global_exception_handler,
 )
+
+
+
 
 
 # ─────────────────────────────────────────
@@ -102,10 +181,19 @@ app.add_exception_handler(
 # ─────────────────────────────────────────
 
 app.include_router(
-    analyze_router,
-    prefix="/api/v1",
+    auth_router,
+    prefix="/api/v1"
 )
 
+app.include_router(
+    resumes_router, 
+    prefix="/api/v1"
+)
+
+app.include_router(
+    analyses_router, 
+    prefix="/api/v1"
+)
 
 # ─────────────────────────────────────────
 # HEALTH CHECK
@@ -118,35 +206,7 @@ app.include_router(
 async def health_check():
     return {
         "status": "healthy",
-        "version": "0.1.0",
-        "phase": "Phase 1 — Deterministic Matching Engine",
+        "version": "0.2.0",
+        "phase": "Phase 2 — Database, Auth and Stored Analyses",
         "message": "AI Placement Analyzer is running.",
     }
-
-
-# ─────────────────────────────────────────
-# STARTUP EVENT
-# Runs once when server starts
-# Phase 2: will check DB connection here
-# Phase 8: will verify Redis connection here
-# ─────────────────────────────────────────
-
-@app.on_event("startup")
-async def on_startup():
-    logger.info("=" * 50)
-    logger.info("AI Placement Analyzer starting up")
-    logger.info("Phase 1 — Deterministic Matching Engine")
-    logger.info("Docs available at: http://127.0.0.1:8000/docs")
-    logger.info("=" * 50)
-
-
-# ─────────────────────────────────────────
-# SHUTDOWN EVENT
-# Runs once when server stops (Ctrl+C)
-# Phase 2: will close DB connections here
-# Phase 8: will close Redis connections here
-# ─────────────────────────────────────────
-
-@app.on_event("shutdown")
-async def on_shutdown():
-    logger.info("AI Placement Analyzer shutting down. Goodbye.")
