@@ -3,6 +3,7 @@ import uuid
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import defer
 
 from app.models import Resume
 
@@ -53,3 +54,12 @@ class ResumeRepository:
         stmt = delete(Resume).where(Resume.id == resume_id, Resume.user_id == user_id)
         result = await self.session.execute(stmt)
         return result.rowcount > 0
+
+        stmt = (
+            select(Resume)
+            .where(Resume.user_id == user_id)
+            .options(defer(Resume.raw_text))      # <- new line
+            .order_by(Resume.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
